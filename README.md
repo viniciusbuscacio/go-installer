@@ -40,13 +40,37 @@ cp macos/background/background.tiff cmd/mkdmg/background.tiff  # re-embed
 The volume name is the app name (no version) so the layout stays identical
 across releases.
 
-## Windows — planned
+## Windows — embedded wizard
 
-Embedded "next → next → finish" wizard: the downloaded exe is the
-installer (per-user install under `%LOCALAPPDATA%\Programs`, Start Menu /
-Desktop shortcuts, Apps & Features registration, uninstaller, portable
-mode). Library without UI; each app draws the wizard, like
+The downloaded exe IS the installer: on a non-installed launch the app
+opens as a "next → next → finish" wizard and installs itself. This
+package (`windows/`, import path
+`github.com/viniciusbuscacio/go-installer/windows`) is the mechanics
+behind it — library without UI; each app draws the wizard, like
 [go-updates](https://github.com/viniciusbuscacio/go-updates).
+
+Everything is per-user, no admin rights:
+
+- `App.Installed` / `App.InstallDir` — detect whether the running exe is
+  the installed copy (default `%LOCALAPPDATA%\Programs\<app>`, or the
+  custom folder recorded in the registry).
+- `App.Install` — copy the running exe there and register the app in
+  Apps & Features (HKCU uninstall key: display name, version, publisher,
+  estimated size, `"<exe>" --uninstall` as the uninstall command).
+- `App.CreateShortcuts` — Start Menu and/or Desktop `.lnk`, resolved via
+  known folders (a OneDrive-redirected Desktop still works), created
+  through the WScript.Shell COM object.
+- `App.Uninstall` + `MaybeCleanup` — full removal: shortcuts, registry
+  entry, the app's data directories (the family decision: uninstalling
+  removes everything) and the install folder. A running exe cannot
+  delete itself, so Uninstall relaunches a helper copy from `%TEMP%`;
+  `MaybeCleanup`, called first thing in the app's `main`, does the
+  removal inside that copy and then removes the copy too.
+- `UninstallRequested` / `Launch` — small helpers for the app's boot
+  logic and the wizard's final "open the app".
+
+Reference integration: go-calc (`install_windows.go` + the
+`InstallerView.vue` wizard).
 
 ## License
 
