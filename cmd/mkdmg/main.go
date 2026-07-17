@@ -93,6 +93,12 @@ func build(app, bg, volname, out, python string) error {
 	if err := run("/bin/cp", bg, filepath.Join(staging, bgName)); err != nil {
 		return fmt.Errorf("copying background: %w", err)
 	}
+	// Gatekeeper blocks unsigned apps on first launch; ship the fix with
+	// the DMG so users aren't left guessing.
+	if err := os.WriteFile(filepath.Join(staging, "README.txt"),
+		[]byte(readmeText(appName)), 0o644); err != nil {
+		return err
+	}
 	// keep Spotlight off the mounted volume
 	if err := os.WriteFile(filepath.Join(staging, ".metadata_never_index"), nil, 0o644); err != nil {
 		return err
@@ -133,7 +139,7 @@ func build(app, bg, volname, out, python string) error {
 		return err
 	}
 	helper.Close()
-	if err := run(python, helper.Name(), mount, appName, bgName); err != nil {
+	if err := run(python, helper.Name(), mount, appName, bgName, "README.txt"); err != nil {
 		return fmt.Errorf("writing .DS_Store (is `pip install ds-store mac-alias` done for %s?): %w", python, err)
 	}
 
@@ -157,6 +163,27 @@ func build(app, bg, volname, out, python string) error {
 		return fmt.Errorf("hdiutil convert: %w", err)
 	}
 	return nil
+}
+
+// readmeText is the install note shipped inside every DMG. The apps are not
+// notarized, so Gatekeeper blocks the first launch; the xattr line is the
+// reliable way around it on current macOS.
+func readmeText(appName string) string {
+	name := strings.TrimSuffix(appName, ".app")
+	return fmt.Sprintf(`%s — macOS install notes
+=====================================
+
+1. Drag %s onto the Applications folder in this window.
+
+2. macOS blocks the first launch because this app is not notarized by
+   Apple. To allow it, run this once in Terminal:
+
+   xattr -dr com.apple.quarantine /Applications/%s
+
+   Then open the app normally.
+
+More: https://github.com/viniciusbuscacio/%s
+`, name, name, appName, name)
 }
 
 // parseAttach pulls the device node and mount point out of hdiutil attach

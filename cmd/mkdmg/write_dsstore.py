@@ -8,7 +8,7 @@ Values mirror the go-apps family DMG layout (660x400 window, app at
 
 Requires: pip install ds-store mac-alias
 
-Usage: write_dsstore.py <mount_point> <app_name> <background_relpath>
+Usage: write_dsstore.py <mount_point> <app_name> <background_relpath> [readme_name]
 """
 
 import os
@@ -18,6 +18,7 @@ from ds_store import DSStore
 from mac_alias import Alias
 
 mount, appname, bgrel = sys.argv[1], sys.argv[2], sys.argv[3]
+readme = sys.argv[4] if len(sys.argv) > 4 else None
 
 bwsp = {
     "ShowStatusBar": False,
@@ -55,5 +56,7 @@ with DSStore.open(os.path.join(mount, ".DS_Store"), "w+") as d:
     d["."]["icvl"] = (b"type", b"icnv")
     d[appname]["Iloc"] = (165, 190)
     d["Applications"]["Iloc"] = (495, 190)
+    if readme:
+        d[readme]["Iloc"] = (330, 320)  # bottom center, below the arrow
 
 print("dsstore written")
