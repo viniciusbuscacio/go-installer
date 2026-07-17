@@ -33,16 +33,37 @@ import (
 //go:embed write_dsstore.py
 var writeDSStore []byte
 
+// the family background ships inside the binary so release CIs only need
+// the one `go run` invocation; -bg overrides it.
+//
+//go:embed background.tiff
+var familyBackground []byte
+
 func main() {
 	app := flag.String("app", "", "path to the .app bundle (required)")
-	bg := flag.String("bg", "", "path to the background image (tiff, required)")
+	bg := flag.String("bg", "", "background image (tiff); default: embedded family background")
 	volname := flag.String("volname", "", "volume name (required)")
 	out := flag.String("out", "", "output .dmg path (required)")
 	python := flag.String("python", "python3", "python interpreter with ds-store + mac-alias")
 	flag.Parse()
-	if *app == "" || *bg == "" || *volname == "" || *out == "" {
+	if *app == "" || *volname == "" || *out == "" {
 		flag.Usage()
 		os.Exit(2)
+	}
+
+	if *bg == "" {
+		f, err := os.CreateTemp("", "mkdmg-bg-*.tiff")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "mkdmg:", err)
+			os.Exit(1)
+		}
+		defer os.Remove(f.Name())
+		if _, err := f.Write(familyBackground); err != nil {
+			fmt.Fprintln(os.Stderr, "mkdmg:", err)
+			os.Exit(1)
+		}
+		f.Close()
+		*bg = f.Name()
 	}
 
 	if err := build(*app, *bg, *volname, *out, *python); err != nil {

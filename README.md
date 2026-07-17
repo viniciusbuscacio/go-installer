@@ -19,16 +19,22 @@ A classic drag-to-Applications DMG, generated in the release CI.
   `background.png` + `background@2x.png`; `tiffutil -cathidpicheck` merges
   them into the retina `background.tiff` that ships inside the DMG.
 
+The family background is embedded in the tool, so a release CI needs just:
+
 ```sh
-# regenerate the background (rarely needed)
+pip install ds-store mac-alias
+go run github.com/viniciusbuscacio/go-installer/cmd/mkdmg@latest \
+    -app path/to/go-calc.app \
+    -volname go-calc -out go-calc-v0.1.3-macos-arm64.dmg
+```
+
+To change the background: edit `macos/background/gen.go`, then
+
+```sh
 go run ./macos/background -out macos/background
 tiffutil -cathidpicheck macos/background/background.png \
     macos/background/background@2x.png -out macos/background/background.tiff
-
-# build a DMG (needs: pip install ds-store mac-alias)
-go run ./cmd/mkdmg -app path/to/go-calc.app \
-    -bg macos/background/background.tiff \
-    -volname go-calc -out go-calc-v0.1.3-macos-arm64.dmg
+cp macos/background/background.tiff cmd/mkdmg/background.tiff  # re-embed
 ```
 
 The volume name is the app name (no version) so the layout stays identical
