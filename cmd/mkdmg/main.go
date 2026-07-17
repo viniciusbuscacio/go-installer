@@ -162,7 +162,7 @@ func build(app, bg, volname, out, python string) error {
 // parseAttach pulls the device node and mount point out of hdiutil attach
 // output, e.g. "/dev/disk4s1 ... Apple_HFS ... /Volumes/go-calc".
 func parseAttach(out string) (device, mount string) {
-	for line := range strings.Lines(out) {
+	for _, line := range strings.Split(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 0 || !strings.HasPrefix(fields[0], "/dev/disk") {
 			continue
