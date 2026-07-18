@@ -40,8 +40,17 @@ func (a App) Uninstall() error {
 	if err != nil {
 		return err
 	}
+	// The directory to remove is the REGISTERED install, not necessarily
+	// where this process runs from: the setup exe offers Uninstall from the
+	// Downloads folder too, and Dir(self) there would delete the wrong tree.
+	dir := ""
+	if loc, _, ok := a.InstalledInfo(); ok {
+		dir = loc
+	} else if a.Installed() {
+		dir = filepath.Dir(self)
+	}
 	m := manifest{
-		InstallDir:  filepath.Dir(self),
+		InstallDir:  dir,
 		DataDirs:    a.DataDirs,
 		Shortcuts:   a.shortcutPaths(),
 		RegistryKey: uninstallRoot + a.ID,

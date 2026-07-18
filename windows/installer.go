@@ -196,6 +196,40 @@ func (a App) registryInstallLocation() (string, error) {
 	return loc, err
 }
 
+// RunningAsSetup reports whether the running executable is named as an
+// installer: the release ships the same binary twice, and the "-setup.exe"
+// name is what turns it into the install wizard — a plain "<app>.exe" just
+// runs the app (portable). The check is on the base name only, so a
+// browser's "go-calc-setup (1).exe" rename still counts.
+func RunningAsSetup() bool {
+	self, err := selfPath()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(filepath.Base(self)), "setup")
+}
+
+// InstalledInfo returns the location and version of an existing install
+// recorded in Apps & Features, if any — what the setup exe uses to offer
+// Reinstall / Uninstall (maintenance) instead of a fresh install. A registry
+// entry whose folder no longer exists is treated as not installed.
+func (a App) InstalledInfo() (location, version string, ok bool) {
+	k, err := registry.OpenKey(registry.CURRENT_USER, uninstallRoot+a.ID, registry.QUERY_VALUE)
+	if err != nil {
+		return "", "", false
+	}
+	defer k.Close()
+	loc, _, err := k.GetStringValue("InstallLocation")
+	if err != nil || loc == "" {
+		return "", "", false
+	}
+	if _, err := os.Stat(loc); err != nil {
+		return "", "", false
+	}
+	ver, _, _ := k.GetStringValue("DisplayVersion")
+	return loc, ver, true
+}
+
 // UninstallRequested reports whether the process was launched with
 // --uninstall — the UninstallString Apps & Features invokes. The app should
 // then show its uninstall confirmation and call Uninstall.

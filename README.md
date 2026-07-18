@@ -40,10 +40,13 @@ cp macos/background/background.tiff cmd/mkdmg/background.tiff  # re-embed
 The volume name is the app name (no version) so the layout stays identical
 across releases.
 
-## Windows — embedded wizard
+## Windows — the classic setup.exe, embedded
 
-The downloaded exe IS the installer: on a non-installed launch the app
-opens as a "next → next → finish" wizard and installs itself. This
+The release ships the SAME binary twice — `<app>.exe` inside the zip just
+runs the app (portable, no wizard ever), and the bare
+`<app>-<tag>-windows-amd64-setup.exe` asset opens as a
+"next → next → finish" install wizard. Running the setup again with the
+app already installed offers **Reinstall / Uninstall** instead. This
 package (`windows/`, import path
 `github.com/viniciusbuscacio/go-installer/windows`) is the mechanics
 behind it — library without UI; each app draws the wizard, like
@@ -51,9 +54,14 @@ behind it — library without UI; each app draws the wizard, like
 
 Everything is per-user, no admin rights:
 
+- `RunningAsSetup` — is this process the `-setup.exe` copy? Decided by the
+  exe's base name, so the release CI only has to upload the binary under a
+  second name (and a browser's `app-setup (1).exe` rename still counts).
 - `App.Installed` / `App.InstallDir` — detect whether the running exe is
   the installed copy (default `%LOCALAPPDATA%\Programs\<app>`, or the
   custom folder recorded in the registry).
+- `App.InstalledInfo` — where and which version Apps & Features says the
+  app is installed, if at all: the setup exe's Reinstall/Uninstall screen.
 - `App.Install` — copy the running exe there and register the app in
   Apps & Features (HKCU uninstall key: display name, version, publisher,
   estimated size, `"<exe>" --uninstall` as the uninstall command).
@@ -62,10 +70,11 @@ Everything is per-user, no admin rights:
   through the WScript.Shell COM object.
 - `App.Uninstall` + `MaybeCleanup` — full removal: shortcuts, registry
   entry, the app's data directories (the family decision: uninstalling
-  removes everything) and the install folder. A running exe cannot
-  delete itself, so Uninstall relaunches a helper copy from `%TEMP%`;
-  `MaybeCleanup`, called first thing in the app's `main`, does the
-  removal inside that copy and then removes the copy too.
+  removes everything) and the REGISTERED install folder (safe to invoke
+  from the setup exe in Downloads). A running exe cannot delete itself,
+  so Uninstall relaunches a helper copy from `%TEMP%`; `MaybeCleanup`,
+  called first thing in the app's `main`, does the removal inside that
+  copy and then removes the copy too.
 - `UninstallRequested` / `Launch` — small helpers for the app's boot
   logic and the wizard's final "open the app".
 
