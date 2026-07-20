@@ -6,9 +6,9 @@ on macOS (`cmd/mkdmg`), and on Windows the two-exe model — the release ships
 the portable exe plus a `-setup.exe` that is the SAME binary
 (`RunningAsSetup` keys the wizard off the file name).
 
-Family rules:
-[go-apps/AGENTS.md](https://github.com/viniciusbuscacio/go-apps/blob/main/AGENTS.md)
-(`../go-apps/AGENTS.md` in a sibling checkout).
+Read the family spec before working:
+[`go-apps.spec`](https://github.com/viniciusbuscacio/go-apps/blob/main/go-apps.spec)
+(`../go-apps/go-apps.spec` in a sibling checkout).
 
 Library invariants:
 
