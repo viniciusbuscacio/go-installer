@@ -33,13 +33,18 @@ const (
 
 func main() {
 	out := flag.String("out", ".", "output directory")
+	layout := flag.String("layout", "install", "background layout: install or setup")
 	flag.Parse()
+	if *layout != "install" && *layout != "setup" {
+		fmt.Fprintln(os.Stderr, "background: -layout must be install or setup")
+		os.Exit(2)
+	}
 
 	for _, s := range []struct {
 		scale int
 		name  string
 	}{{1, "background.png"}, {2, "background@2x.png"}} {
-		img := render(s.scale)
+		img := render(s.scale, *layout == "install")
 		path := filepath.Join(*out, s.name)
 		f, err := os.Create(path)
 		if err != nil {
@@ -55,7 +60,7 @@ func main() {
 	}
 }
 
-func render(scale int) *image.NRGBA {
+func render(scale int, drawArrow bool) *image.NRGBA {
 	w, h := baseW*scale, baseH*scale
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	fs := float64(scale)
@@ -81,10 +86,12 @@ func render(scale int) *image.NRGBA {
 			g := lerp(0x2e, 0x1f, t)
 			b := lerp(0x33, 0x23, t)
 
-			// arrow coverage (antialiased)
+			// arrow coverage (antialiased) for the drag-to-Applications layout.
 			a := 0.0
-			for _, c := range caps {
-				a = math.Max(a, capsule(x, y, c[0], c[1], c[2], c[3], arrowR, fs))
+			if drawArrow {
+				for _, c := range caps {
+					a = math.Max(a, capsule(x, y, c[0], c[1], c[2], c[3], arrowR, fs))
+				}
 			}
 			if a > 0 {
 				const ar, ag, ab = 0x8c, 0x8c, 0x92

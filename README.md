@@ -40,6 +40,16 @@ cp macos/background/background.tiff cmd/mkdmg/background.tiff  # re-embed
 The volume name is the app name (no version) so the layout stays identical
 across releases.
 
+For a product that ships a setup wizard instead of a drag-installable app,
+use the centered setup layout. It omits the `/Applications` symlink and tells
+the user to open the wizard:
+
+```sh
+go run github.com/viniciusbuscacio/go-installer/cmd/mkdmg@latest \
+    -layout setup -app 'path/to/Pop Desktop Setup.app' \
+    -volname 'Pop Desktop Setup' -out 'Pop Desktop Setup.dmg'
+```
+
 ## Windows — the classic setup.exe, embedded
 
 The release ships the SAME binary twice — `<app>.exe` inside the zip just

@@ -39,14 +39,18 @@ var writeDSStore []byte
 //go:embed background.tiff
 var familyBackground []byte
 
+//go:embed setup-background.tiff
+var setupBackground []byte
+
 func main() {
 	app := flag.String("app", "", "path to the .app bundle (required)")
 	bg := flag.String("bg", "", "background image (tiff); default: embedded family background")
 	volname := flag.String("volname", "", "volume name (required)")
 	out := flag.String("out", "", "output .dmg path (required)")
 	python := flag.String("python", "python3", "python interpreter with ds-store + mac-alias")
+	layout := flag.String("layout", "install", "Finder layout: install (drag to Applications) or setup (double-click wizard)")
 	flag.Parse()
-	if *app == "" || *volname == "" || *out == "" {
+	if *app == "" || *volname == "" || *out == "" || (*layout != "install" && *layout != "setup") {
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -58,7 +62,11 @@ func main() {
 			os.Exit(1)
 		}
 		defer os.Remove(f.Name())
-		if _, err := f.Write(familyBackground); err != nil {
+		background := familyBackground
+		if *layout == "setup" {
+			background = setupBackground
+		}
+		if _, err := f.Write(background); err != nil {
 			fmt.Fprintln(os.Stderr, "mkdmg:", err)
 			os.Exit(1)
 		}
@@ -66,14 +74,14 @@ func main() {
 		*bg = f.Name()
 	}
 
-	if err := build(*app, *bg, *volname, *out, *python); err != nil {
+	if err := build(*app, *bg, *volname, *out, *python, *layout); err != nil {
 		fmt.Fprintln(os.Stderr, "mkdmg:", err)
 		os.Exit(1)
 	}
 	fmt.Println("wrote", *out)
 }
 
-func build(app, bg, volname, out, python string) error {
+func build(app, bg, volname, out, python, layout string) error {
 	appName := filepath.Base(app)
 	bgName := ".background" + filepath.Ext(bg) // hidden file at volume root
 
@@ -87,8 +95,10 @@ func build(app, bg, volname, out, python string) error {
 	if err := run("/usr/bin/ditto", app, filepath.Join(staging, appName)); err != nil {
 		return fmt.Errorf("copying app: %w", err)
 	}
-	if err := os.Symlink("/Applications", filepath.Join(staging, "Applications")); err != nil {
-		return err
+	if layout == "install" {
+		if err := os.Symlink("/Applications", filepath.Join(staging, "Applications")); err != nil {
+			return err
+		}
 	}
 	if err := run("/bin/cp", bg, filepath.Join(staging, bgName)); err != nil {
 		return fmt.Errorf("copying background: %w", err)
@@ -96,7 +106,7 @@ func build(app, bg, volname, out, python string) error {
 	// Gatekeeper blocks unsigned apps on first launch; ship the fix with
 	// the DMG so users aren't left guessing.
 	if err := os.WriteFile(filepath.Join(staging, "README.txt"),
-		[]byte(readmeText(appName)), 0o644); err != nil {
+		[]byte(readmeText(appName, layout)), 0o644); err != nil {
 		return err
 	}
 	// keep Spotlight off the mounted volume
@@ -139,7 +149,7 @@ func build(app, bg, volname, out, python string) error {
 		return err
 	}
 	helper.Close()
-	if err := run(python, helper.Name(), mount, appName, bgName, "README.txt"); err != nil {
+	if err := run(python, helper.Name(), mount, appName, bgName, "README.txt", layout); err != nil {
 		return fmt.Errorf("writing .DS_Store (is `pip install ds-store mac-alias` done for %s?): %w", python, err)
 	}
 
@@ -168,8 +178,18 @@ func build(app, bg, volname, out, python string) error {
 // readmeText is the install note shipped inside every DMG. The apps are not
 // notarized, so Gatekeeper blocks the first launch; the xattr line is the
 // reliable way around it on current macOS.
-func readmeText(appName string) string {
+func readmeText(appName, layout string) string {
 	name := strings.TrimSuffix(appName, ".app")
+	if layout == "setup" {
+		return fmt.Sprintf(`%s — macOS setup
+==============================
+
+Double-click %s in this window and follow the setup wizard.
+
+If macOS asks for confirmation, choose Open. The wizard installs the
+application for your user account; administrator access is not required.
+`, name, name)
+	}
 	return fmt.Sprintf(`%s — macOS install notes
 =====================================
 
